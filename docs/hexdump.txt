@@ -1,0 +1,5 @@
+-s = offset
+-n = number of bytes to display
+
+Useful
+| head -n 10
