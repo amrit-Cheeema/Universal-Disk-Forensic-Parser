@@ -1,0 +1,22 @@
+CPU execution
+- Reset Vector
+    Where the CPU execution begins
+    - x86-64 systems by design start executing at offset 0xFFFFFFF0
+
+
+Root Header
+- x86-64 intel: 
+    - Flash Descriptor
+    - ME firmware
+    - GBE firmware
+    - BIOS
+- 
+
+BIOS
+- UEFI
+- Legacy BIOS
+
+UEFI
+Comprised of Firmware Volumes, there is no map
+but you have to look for a signiture (UEFI Platform Initialization, 3.2.1).
+- Firmware Volume (UEFI Platform Initialization, 3.2.1)

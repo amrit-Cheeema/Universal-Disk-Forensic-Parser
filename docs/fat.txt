@@ -1,1 +1,14 @@
+Describles 3 types of Volumes (Fat12/Fat16/Fat32)
+Volume Structure:
+- Bios Parameter Block
+- Bios Parameter Block backup
+- File Allocation Table
+- FAT Copy
+- Root Directory (only on Fat12 and 16)
+- Data
+
+Bios Parameter Block:
+This tells you all about the FAT Volume
+It is the configuration for the volume
+You can set customs name and stuff, which is cool
 

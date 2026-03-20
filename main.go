@@ -1,60 +1,70 @@
 package main
 
 import (
-
-	"encoding/binary"
-	"fmt"
+    "bytes"
+    "io"
 	"log"
+    "fmt"
 	"os"
+	// "github.com/AmritKhalsa/fossInteligence/fat"
 )
-type fat struct {
-    // BIOS PARAMETER BLOCK
-    BPB [512]byte
+// findSignature scans an os.File for a byte pattern without loading the whole file.
+//  - It returns the offset array of matchs found, or empty array if not found
+//  - Update bufferSize for large signitures. sig > 10kB
+func findSignature(file *os.File , signature []byte) (sigAddrs []int64, err error) {
+	
+	const bufferSize = 64 * 1024 // 64KB chunks
+	buffer := make([]byte, bufferSize)
+    var offset int64 = 0 // used to store where we are in the file
+	sigLen := len(signature)
 
-    // Jump instruction to boot code
-    // This field has two allowed forms
-    //  - [0xEB, offset, 0x90(NOP)] (jmp to (signed)offset)
-    //  - [0xE9, offset1, offset2] (jmp to (signed)(offset2(H) offset1(L)) bytes)
-    JmpBoot [3]byte
+    sigAddrs = []int64{} // return array 
 
-    OEMName string
+	for {
+        // Reading n bytes at offset
+		_, err := file.Seek(offset, io.SeekStart)
+        if err != nil {return sigAddrs, err}
+        n, err := file.Read(buffer)
+        if (n == 0 || err == io.EOF) { break } // Break condition: EOF -> break
+        if err != nil {return sigAddrs, err}
+        // buffer[:n] now has the correct data to search through
+        
+        
+        
+        // Look for all signature in the current buffer, if found append to sigAddrs
+		searchBuf := buffer[:n]
+		localPos := 0
+		for {
+			idx := bytes.Index(searchBuf[localPos:], signature) // see if there is signature in local search buffer
+			if idx == -1 {break} // nothing found
+			absolutePos := offset + int64(localPos) + int64(idx)
+			sigAddrs = append(sigAddrs, absolutePos)
+			
+			// Move localPos past this match to find the next one in the same buffer, until we have found all signitures
+			localPos += idx + 1 
+		}
 
-    // This value may take on only the following values: 512, 1024, 2048 or 4096
-    SecPerClus uint16
-    
-    // Number of file allocation tables
-    NumFATs uint8
 
-    // Count of 32-byte directory entries in the root directory
-    //  - [FAT32] Value should be 00 00 for 32 bit volumes
-    //  - [FAT12, FAT16] Default = 512. This should follow the form: fat.RootEntCnt * 32 = k * fat.BytsPerSec, where k is Even
-    RootEntCnt uint16
-}
-func (f *fat) Init() {
-    copy(f.JmpBoot[:], f.BPB[0:3])
-    f.OEMName = string(f.BPB[3:11])
+        // Calculating next offset
+		// We move forward by (n - sigLen + 1) to ensure the next read starts late enough to catch a signature split across the boundary.
+		nextStep := int64(n) - int64(sigLen) + 1
+		if nextStep <= 0 {
+			offset += int64(n) // If the signature is larger than what we read, just move by n
+		} else {
+			offset += nextStep
+		}
+    }
 
-    f.SecPerClus = binary.LittleEndian.Uint16(f.BPB[11:13])
-    f.NumFATs = f.BPB[16]
-    f.RootEntCnt = binary.LittleEndian.Uint16(f.BPB[17:19])
-
+	return sigAddrs, nil
 }
 func main(){
-    file, err := os.Open("disk.img")
+    file, err := os.Open("firmware.bin")
     if err != nil {
 		log.Fatal(err)
 	}
     defer file.Close()
-    buffer := make([]byte, 512)
 
-	bytesRead, err := file.Read(buffer)
-	if err != nil {
-		log.Fatal(err)
-	}
-    fmt.Printf("Read %d bytes successfully.\n", bytesRead)
-	
-    fat := fat{BPB: [512]byte(buffer)}
-    fat.Init()
-    fmt.Println(fat)
-	
+    
+    sigs := findSignature(file, []byte{0x5F, 0x46, 0x56, 0x48})
+	fmt.Println(sigs)
 }
